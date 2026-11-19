@@ -19,6 +19,23 @@
   ],
   "license": "MIT",
   "description_md": "https://raw.githubusercontent.com/alru78/paywallwasm/main/description.md",
+  "images": [
+    {
+      "uri": "https://raw.githubusercontent.com/alru78/paywallwasm/main/images/gallery-1.png"
+    },
+    {
+      "uri": "https://raw.githubusercontent.com/alru78/paywallwasm/main/images/gallery-2.png"
+    },
+    {
+      "uri": "https://raw.githubusercontent.com/alru78/paywallwasm/main/images/gallery-3.png"
+    },
+    {
+      "uri": "https://raw.githubusercontent.com/alru78/paywallwasm/main/images/gallery-4.png"
+    },
+    {
+      "uri": "https://raw.githubusercontent.com/alru78/paywallwasm/main/images/gallery-5.png"
+    }
+  ],
   "wasm": {
     "module": "wasm/module.wasm",
     "exports": [
