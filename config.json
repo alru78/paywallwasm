@@ -2,24 +2,61 @@
   "id": "paywallwasm",
   "name": "Paywall",
   "short_description": "Unlock a link after a Lightning payment.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "min_lnbits_version": "1.7.1",
-
   "extension_type": "wasm",
   "wasm": {
     "module": "wasm/module.wasm",
     "exports": [
-      {"name": "create-paywall", "visibility": "authenticated"},
-      {"name": "update-paywall", "visibility": "authenticated"},
-      {"name": "list-paywalls", "visibility": "authenticated"},
-      {"name": "delete-paywall", "visibility": "authenticated"},
-      {"name": "list-paywall-payments", "visibility": "authenticated"},
-      {"name": "list-wallets", "visibility": "authenticated"},
-      {"name": "list-currencies", "visibility": "public"},
-      {"name": "get-public-paywall", "visibility": "public"},
-      {"name": "create-paywall-invoice", "visibility": "public"},
-      {"name": "check-paywall-payment", "visibility": "public"},
-      {"name": "record-payment", "visibility": "event"}
+      {
+        "name": "create-paywall",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "update-paywall",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "list-paywalls",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "delete-paywall",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "list-paywall-payments",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "list-wallets",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "get-developer-support",
+        "visibility": "authenticated"
+      },
+      {
+        "name": "list-currencies",
+        "visibility": "public"
+      },
+      {
+        "name": "get-public-paywall",
+        "visibility": "public"
+      },
+      {
+        "name": "create-paywall-invoice",
+        "visibility": "public"
+      },
+      {
+        "name": "check-paywall-payment",
+        "visibility": "public"
+      },
+      {
+        "name": "record-payment",
+        "visibility": "event",
+        "sync": true
+      }
     ]
   },
   "events": {
@@ -35,7 +72,9 @@
       "path": "/paywallwasm/{paywall_id}",
       "entrypoint": "ui/public.html",
       "auth": "public",
-      "path_params": {"paywall_id": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      }
     }
   ],
   "api_routes": [
@@ -50,7 +89,9 @@
       "path": "/paywalls/{paywall_id}",
       "export": "update-paywall",
       "auth": "user",
-      "path_params": {"paywall_id": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      }
     },
     {
       "method": "GET",
@@ -63,19 +104,29 @@
       "path": "/paywalls/{paywall_id}",
       "export": "delete-paywall",
       "auth": "user",
-      "path_params": {"paywall_id": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      }
     },
     {
       "method": "GET",
       "path": "/paywalls/{paywall_id}/payments",
       "export": "list-paywall-payments",
       "auth": "user",
-      "path_params": {"paywall_id": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      }
     },
     {
       "method": "GET",
       "path": "/wallets",
       "export": "list-wallets",
+      "auth": "user"
+    },
+    {
+      "method": "GET",
+      "path": "/developer-support",
+      "export": "get-developer-support",
       "auth": "user"
     },
     {
@@ -89,23 +140,35 @@
       "path": "/public/{paywall_id}",
       "export": "get-public-paywall",
       "auth": "public",
-      "path_params": {"paywall_id": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      }
     },
     {
       "method": "POST",
       "path": "/public/{paywall_id}/invoice",
       "export": "create-paywall-invoice",
       "auth": "public",
-      "path_params": {"paywall_id": "paywallId"},
-      "ownerContext": {"table": "paywalls", "idParam": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      },
+      "ownerContext": {
+        "table": "paywalls",
+        "idParam": "paywallId"
+      }
     },
     {
       "method": "POST",
       "path": "/public/{paywall_id}/check",
       "export": "check-paywall-payment",
       "auth": "public",
-      "path_params": {"paywall_id": "paywallId"},
-      "ownerContext": {"table": "paywalls", "idParam": "paywallId"}
+      "path_params": {
+        "paywall_id": "paywallId"
+      },
+      "ownerContext": {
+        "table": "paywalls",
+        "idParam": "paywallId"
+      }
     }
   ],
   "permissions": [
@@ -123,7 +186,14 @@
       "policies": [
         {
           "table_name": "paywalls",
-          "public_fields": ["id", "memo", "description", "amount", "currency", "remembers"]
+          "public_fields": [
+            "id",
+            "memo",
+            "description",
+            "amount",
+            "currency",
+            "remembers"
+          ]
         }
       ]
     },
@@ -131,7 +201,10 @@
       "id": "wallet.create_invoice_public",
       "description": "Create invoices into the wallet the paywall owner selected.",
       "policies": [
-        {"table": "paywalls", "wallet_field": "wallet_id"}
+        {
+          "table": "paywalls",
+          "wallet_field": "wallet_id"
+        }
       ]
     },
     {
@@ -141,6 +214,10 @@
     {
       "id": "utils.basic",
       "description": "List currencies and convert fiat prices to sats."
+    },
+    {
+      "id": "wallet.pay_invoice_background",
+      "description": "Optional developer support: when you enable it on a paywall, 1% of its payments is collected and sent to alru@ruxit.tech in batches of at least 21 sats. Payouts also need your per-wallet approval."
     }
   ]
 }

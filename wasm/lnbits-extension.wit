@@ -300,6 +300,7 @@ world paywallwasm {
   export list-paywalls: func(request-json: string) -> string;
   export delete-paywall: func(request-json: string) -> string;
   export list-paywall-payments: func(request-json: string) -> string;
+  export get-developer-support: func(request-json: string) -> string;
   export list-wallets: func(request-json: string) -> string;
   export list-currencies: func(request-json: string) -> string;
   export get-public-paywall: func(request-json: string) -> string;

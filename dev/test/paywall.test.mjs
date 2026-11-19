@@ -25,6 +25,8 @@ const HASH_B = 'b'.repeat(64)
 
 let rows
 let invoices
+let payouts
+let payoutError
 let owner
 let wallets
 let counter
@@ -71,6 +73,10 @@ globalThis.__paywallHost = {
     createInvoicePublic(request) {
       invoices.push(request)
       return {paymentHash: HASH_A, paymentRequest: 'lnbc1fake', checkingId: HASH_A}
+    },
+    payLnurl(request) {
+      payouts.push(request)
+      return payoutError ? {ok: false, error: payoutError} : {ok: true, success: true}
     }
   },
   system: {
@@ -104,6 +110,14 @@ function callError(fn, request) {
   const response = JSON.parse(fn(JSON.stringify(request)))
   assert.equal(response.ok, false)
   return response.error
+}
+
+function hash(n) {
+  return n.toString(16).padStart(64, '0')
+}
+
+function feeRow() {
+  return [...rows.values()].find(row => row.data.id.startsWith('fee_'))?.data
 }
 
 function paidEvent(paywallId, paymentHash = HASH_A, overrides = {}) {
@@ -140,6 +154,8 @@ function createAlicePaywall(overrides = {}) {
 beforeEach(() => {
   rows = new Map()
   invoices = []
+  payouts = []
+  payoutError = ''
   owner = null
   counter = 0
   wallets = {
@@ -266,4 +282,74 @@ test('deleting a paywall removes its unlocks', () => {
   call(ext.recordPayment, paidEvent(paywall.id))
   call(ext.deletePaywall, {paywallId: paywall.id})
   assert.equal(rows.size, 0)
+})
+
+test('developer support is off unless the owner enables it', () => {
+  const paywall = createAlicePaywall()
+  assert.equal(paywall.supportDeveloper, false)
+  call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {amount: 5_000_000}))
+  assert.equal(feeRow(), undefined)
+  assert.equal(payouts.length, 0)
+})
+
+test('one percent is collected below the payout threshold', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  const result = call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {amount: 21_000}))
+  assert.equal(result.developerSupport.feeMsat, 210)
+  assert.equal(feeRow().owed_msat, 210)
+  assert.equal(payouts.length, 0)
+})
+
+test('collected fees are paid out in one batch at the threshold', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  call(ext.recordPayment, paidEvent(paywall.id, hash(1), {amount: 1_500_000}))
+  assert.equal(payouts.length, 0)
+  call(ext.recordPayment, paidEvent(paywall.id, hash(2), {amount: 700_000}))
+  assert.equal(payouts.length, 1)
+  assert.deepEqual(
+    {walletId: payouts[0].walletId, lnurl: payouts[0].lnurl, amount: payouts[0].amount, maxSat: payouts[0].maxSat},
+    {walletId: 'w_alice', lnurl: 'alru@ruxit.tech', amount: 22, maxSat: 22}
+  )
+  assert.equal(feeRow().owed_msat, 0)
+  assert.equal(feeRow().paid_msat, 22_000)
+  assert.equal(feeRow().payouts, 1)
+})
+
+test('a failed payout keeps the fee for the next attempt', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  payoutError = 'missing wallet background grant'
+  call(ext.recordPayment, paidEvent(paywall.id, hash(1), {amount: 3_000_000}))
+  assert.equal(feeRow().owed_msat, 30_000)
+  assert.match(feeRow().last_error, /background grant/)
+
+  payoutError = ''
+  call(ext.recordPayment, paidEvent(paywall.id, hash(2), {amount: 100_000}))
+  assert.equal(payouts.at(-1).amount, 31)
+  assert.equal(feeRow().owed_msat, 0)
+  assert.equal(feeRow().last_error, '')
+})
+
+test('a single payout is capped', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  call(ext.recordPayment, paidEvent(paywall.id, hash(1), {amount: 1_000_000_000}))
+  assert.equal(payouts[0].amount, 1000)
+  assert.equal(feeRow().owed_msat, 9_000_000)
+})
+
+test('duplicate payment events do not collect twice', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {amount: 21_000}))
+  call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {amount: 21_000}))
+  assert.equal(feeRow().owed_msat, 210)
+})
+
+test('the owner sees the developer support status', () => {
+  const paywall = createAlicePaywall({supportDeveloper: true})
+  call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {amount: 2_500_000}))
+  const status = call(ext.getDeveloperSupport, {})
+  assert.equal(status.lightningAddress, 'alru@ruxit.tech')
+  assert.equal(status.feePercent, 1)
+  assert.deepEqual(status.wallets.map(w => [w.walletId, w.paidSat, w.owedSat]), [['w_alice', 25, 0]])
+  owner = 'bob'
+  assert.deepEqual(call(ext.getDeveloperSupport, {}).wallets, [])
 })

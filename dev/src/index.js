@@ -5,6 +5,14 @@ const PAYWALLS_TABLE = 'paywalls'
 const UNLOCKS_TABLE = 'unlocks'
 const PAYWALL_SEARCH_FIELDS = ['memo', 'description', 'wallet_name']
 const MAX_URL_LENGTH = 2048
+const FEES_TABLE = 'developer_fees'
+// Optional developer support: 1% of each paid unlock, collected per wallet and
+// paid out to the developer's Lightning address in batches, so routing fees do
+// not eat single-sat payments. Shown to users before they enable it.
+const DEVELOPER_LNADDRESS = 'alru@ruxit.tech'
+const DEVELOPER_FEE_PERCENT = 1
+const PAYOUT_THRESHOLD_SAT = 21
+const PAYOUT_MAX_SAT = 1000
 const PAYMENT_HASH_PATTERN = /^[0-9a-f]{64}$/
 
 // Authenticated exports: the paywall owner manages their paywalls.
@@ -102,6 +110,26 @@ export function listPaywallPayments(requestJson) {
       total: response.total,
       page,
       limit: pageSize
+    }
+  })
+}
+
+export function getDeveloperSupport(_requestJson) {
+  return runJson(() => {
+    const response = storage.getPaginated(FEES_TABLE, {limit: 100})
+    return {
+      lightningAddress: DEVELOPER_LNADDRESS,
+      feePercent: DEVELOPER_FEE_PERCENT,
+      payoutThresholdSat: PAYOUT_THRESHOLD_SAT,
+      payoutMaxSat: PAYOUT_MAX_SAT,
+      wallets: response.data.map(row => ({
+        walletId: row.wallet_id,
+        owedSat: Math.floor(Number(row.owed_msat || 0) / 1000),
+        paidSat: Math.floor(Number(row.paid_msat || 0) / 1000),
+        payouts: Number(row.payouts || 0),
+        lastPayoutAt: row.last_payout_at || null,
+        lastError: row.last_error || ''
+      }))
     }
   })
 }
@@ -204,17 +232,86 @@ export function recordPayment(eventJson) {
 
     // The id is derived from the payment hash, so duplicate events overwrite
     // the same row instead of creating a second unlock.
+    const amountMsat = Math.abs(Math.trunc(Number(event.amount || 0)))
     storage.set(UNLOCKS_TABLE, {
       id,
       paywall_id: paywall.id,
       payment_hash: paymentHash,
-      amount_msat: Math.abs(Math.trunc(Number(event.amount || 0))),
+      amount_msat: amountMsat,
       paid: true,
       paid_at: system.now()
     })
     system.log(`${EXTENSION_ID}: unlocked paywall ${paywall.id}`)
-    return {recorded: true}
+
+    const developerSupport =
+      paywall.support_developer === true
+        ? collectDeveloperFee(paywall.wallet_id, amountMsat)
+        : null
+    return {recorded: true, developerSupport}
   })
+}
+
+// record-payment is a "sync" export, so fee updates for one owner never race.
+function collectDeveloperFee(walletId, amountMsat) {
+  const feeMsat = Math.floor((amountMsat * DEVELOPER_FEE_PERCENT) / 100)
+  const id = `fee_${walletId}`
+  const row = storage.get(FEES_TABLE, id) || {
+    id,
+    wallet_id: walletId,
+    owed_msat: 0,
+    paid_msat: 0,
+    payouts: 0,
+    last_payout_at: null,
+    last_error: ''
+  }
+  row.owed_msat = Number(row.owed_msat || 0) + feeMsat
+  row.updated_at = system.now()
+
+  const payoutSat = Math.min(Math.floor(row.owed_msat / 1000), PAYOUT_MAX_SAT)
+  if (payoutSat < PAYOUT_THRESHOLD_SAT) {
+    storage.set(FEES_TABLE, row)
+    return {feeMsat, owedMsat: row.owed_msat, paidOut: 0}
+  }
+
+  // Deduct before paying: if the invocation dies after the payment, the
+  // developer loses that batch instead of the user paying it twice.
+  row.owed_msat -= payoutSat * 1000
+  storage.set(FEES_TABLE, row)
+
+  let error = ''
+  try {
+    const payment = wallet.payLnurl({
+      walletId,
+      lnurl: DEVELOPER_LNADDRESS,
+      amount: payoutSat,
+      currency: 'sat',
+      comment: 'Paywall developer support',
+      description: `Paywall developer support (${DEVELOPER_FEE_PERCENT}%)`,
+      maxSat: payoutSat,
+      extra: {developerSupport: 'true'}
+    })
+    if (!payment || payment.ok === false) {
+      error = payment?.error || 'Payout failed.'
+    }
+  } catch (caught) {
+    error = caught instanceof Error ? caught.message : String(caught)
+  }
+
+  if (error) {
+    row.owed_msat += payoutSat * 1000
+    row.last_error = cleanText(error, 300)
+    storage.set(FEES_TABLE, row)
+    system.log(`${EXTENSION_ID}: developer payout failed: ${row.last_error}`, 'warning')
+    return {feeMsat, owedMsat: row.owed_msat, paidOut: 0, error: row.last_error}
+  }
+
+  row.paid_msat = Number(row.paid_msat || 0) + payoutSat * 1000
+  row.payouts = Number(row.payouts || 0) + 1
+  row.last_payout_at = system.now()
+  row.last_error = ''
+  storage.set(FEES_TABLE, row)
+  system.log(`${EXTENSION_ID}: paid ${payoutSat} sats developer support`)
+  return {feeMsat, owedMsat: row.owed_msat, paidOut: payoutSat}
 }
 
 function paywallFields(request) {
@@ -231,7 +328,8 @@ function paywallFields(request) {
     description: cleanText(request.description, 2000),
     amount: normalizeAmount(request.amount, currency),
     currency,
-    remembers: request.remembers === true
+    remembers: request.remembers === true,
+    support_developer: request.supportDeveloper === true
   }
 }
 
@@ -246,6 +344,7 @@ function privatePaywall(paywall) {
     ...publicPaywall(paywall),
     walletId: paywall.wallet_id,
     walletName: paywall.wallet_name,
+    supportDeveloper: paywall.support_developer === true,
     url: paywall.url,
     createdAt: paywall.created_at,
     updatedAt: paywall.updated_at

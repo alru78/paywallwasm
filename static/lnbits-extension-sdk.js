@@ -66,6 +66,17 @@
         return request(`${baseUrl}/wallets`)
       },
 
+      getDeveloperSupport() {
+        return request(`${baseUrl}/developer-support`)
+      },
+
+      requestBackgroundPaymentPermission(grant) {
+        return bridgeRequest({
+          action: 'permissions.request_background_payment',
+          grant
+        })
+      },
+
       listCurrencies() {
         return request(`${baseUrl}/currencies`)
       },

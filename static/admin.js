@@ -2,6 +2,7 @@ const client = window.createLNbitsExtensionClient({extensionId: 'paywallwasm'})
 
 const state = {
   editingId: null,
+  support: null,
   paywalls: [],
   wallets: []
 }
@@ -35,9 +36,71 @@ async function init() {
 }
 
 async function refresh() {
-  const response = await client.listPaywalls({limit: 100})
+  const [response, support] = await Promise.all([
+    client.listPaywalls({limit: 100}),
+    client.getDeveloperSupport()
+  ])
   state.paywalls = response.paywalls || []
+  state.support = support
+  renderSupportHint()
   renderList()
+  renderSupportPanel()
+}
+
+function renderSupportHint() {
+  const s = state.support
+  if (!s) return
+  $('#support-label').textContent =
+    `Support the developer with ${s.feePercent}% of this paywall's payments`
+  $('#support-hint').textContent =
+    `Off by default. When on, ${s.feePercent}% of each payment is collected and sent ` +
+    `from the paywall's wallet to ${s.lightningAddress} once at least ` +
+    `${s.payoutThresholdSat} sats have built up (at most ${s.payoutMaxSat} sats per payout). ` +
+    `LNbits asks you to approve these payouts for the wallet. You can switch it off any time.`
+}
+
+function renderSupportPanel() {
+  const s = state.support
+  const panel = $('#support-panel')
+  const container = $('#support-wallets')
+  container.textContent = ''
+  const supported = new Set(
+    state.paywalls.filter(p => p.supportDeveloper).map(p => p.walletId)
+  )
+  const rows = new Map((s?.wallets || []).map(row => [row.walletId, row]))
+  for (const walletId of supported) {
+    if (!rows.has(walletId)) rows.set(walletId, {walletId, owedSat: 0, paidSat: 0, payouts: 0, lastError: ''})
+  }
+  panel.hidden = rows.size === 0
+  for (const row of rows.values()) {
+    const name = state.wallets.find(w => w.id === row.walletId)?.name || row.walletId
+    const children = [
+      el('strong', {}, name),
+      el(
+        'div',
+        {class: 'muted small'},
+        `Collected, not yet sent: ${row.owedSat} sats · sent: ${row.paidSat} sats in ${row.payouts} payout(s)`
+      )
+    ]
+    if (row.lastError) {
+      children.push(el('div', {class: 'text-negative small'}, `Last payout failed: ${row.lastError}`))
+    }
+    children.push(
+      el('div', {class: 'actions'}, [
+        button('Approve payouts for this wallet', () => requestPayoutPermission(row.walletId))
+      ])
+    )
+    container.append(el('article', {class: 'item'}, children))
+  }
+}
+
+async function requestPayoutPermission(walletId) {
+  const s = state.support
+  await client.requestBackgroundPaymentPermission({
+    wallet_id: walletId,
+    max_amount: s?.payoutMaxSat || 1000,
+    destination_policy: 'external_allowed'
+  })
 }
 
 async function save() {
@@ -50,7 +113,8 @@ async function save() {
       amount: Number(field('amount').value),
       currency: field('currency').value,
       walletId: field('walletId').value,
-      remembers: field('remembers').checked
+      remembers: field('remembers').checked,
+      supportDeveloper: field('supportDeveloper').checked
     }
     if (state.editingId) {
       await client.updatePaywall(state.editingId, payload)
@@ -58,6 +122,11 @@ async function save() {
     } else {
       await client.createPaywall(payload)
       client.notify('Paywall created').catch(() => {})
+    }
+    if (payload.supportDeveloper) {
+      // Payouts need the user's grant for this wallet; without it the fee is
+      // only collected and the panel shows why payouts fail.
+      await requestPayoutPermission(payload.walletId).catch(() => {})
     }
     resetForm()
     await refresh()
@@ -75,6 +144,7 @@ function edit(paywall) {
   field('currency').value = paywall.currency
   field('walletId').value = paywall.walletId
   field('remembers').checked = paywall.remembers
+  field('supportDeveloper').checked = paywall.supportDeveloper
   $('#form-title').textContent = 'Edit paywall'
   saveButton.textContent = 'Save changes'
   cancelButton.hidden = false
@@ -87,6 +157,7 @@ function resetForm() {
   field('amount').value = '100'
   field('currency').value = 'sat'
   field('remembers').checked = false
+  field('supportDeveloper').checked = false
   $('#form-title').textContent = 'New paywall'
   saveButton.textContent = 'Create paywall'
   cancelButton.hidden = true
@@ -146,6 +217,9 @@ function renderList() {
         ]),
         el('div', {class: 'muted small'}, `Wallet: ${paywall.walletName || paywall.walletId}`),
         el('div', {class: 'muted small url'}, `Unlocks: ${paywall.url}`),
+        paywall.supportDeveloper
+          ? el('div', {class: 'muted small'}, `Developer support: ${state.support?.feePercent ?? 1}%`)
+          : '',
         el('div', {class: 'actions'}, [
           button('Open public page', () => client.openNewTab(link)),
           button('Copy link', () => copy(link)),

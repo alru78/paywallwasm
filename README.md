@@ -14,6 +14,22 @@ WASM extension runtime.
   the public page or of any response before the payment.
 - You can see the payments for each paywall.
 
+## Developer support (optional, off by default)
+
+Each paywall has a "Support the developer" option. It is off unless you tick it.
+When it is on:
+
+- 1% of each payment to that paywall is collected for the wallet that received it.
+- Once at least 21 sats have built up, they are sent from that wallet to
+  `alru@ruxit.tech` in one Lightning payment (at most 1000 sats per payout).
+  Batching keeps routing fees from eating single-sat payments.
+- Payouts need your approval: LNbits asks you to allow background payments
+  from that wallet (up to 1000 sats each, external destinations allowed).
+  Without that approval nothing is sent; the amount stays collected and the
+  management page shows why the payout failed.
+- The management page shows, per wallet, what has been collected, what has been
+  sent and the last error. Untick the option to stop collecting for a paywall.
+
 ## Differences from the Python Paywall extension
 
 | Python Paywall | This extension |
@@ -47,6 +63,7 @@ WASM extension runtime.
 | `wallet.create_invoice_public` | Create invoices into the wallet chosen for the paywall |
 | `wallet.list` | Let you pick the receiving wallet |
 | `utils.basic` | List currencies and convert fiat prices |
+| `wallet.pay_invoice_background` | Only for the optional developer support payouts; also needs your per-wallet approval |
 
 ## Development
 

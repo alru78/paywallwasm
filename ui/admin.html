@@ -48,11 +48,21 @@
             <input name="remembers" type="checkbox" />
             <span>Remember the unlock for the visitor's browser session</span>
           </label>
+          <label class="checkbox">
+            <input name="supportDeveloper" type="checkbox" />
+            <span id="support-label">Support the developer</span>
+          </label>
+          <p id="support-hint" class="muted small q-my-none"></p>
           <div class="actions">
             <button id="save-button" class="q-btn bg-primary text-white" type="button">Create paywall</button>
             <button id="cancel-button" class="q-btn text-grey-2" type="button" hidden>Cancel</button>
           </div>
         </div>
+      </section>
+
+      <section id="support-panel" class="panel q-pa-md q-mb-md" hidden>
+        <h2 class="text-h6 q-mt-none q-mb-sm">Developer support</h2>
+        <div id="support-wallets" class="list"></div>
       </section>
 
       <section class="panel q-pa-md">

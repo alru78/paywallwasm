@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "description": "Add optional developer support.",
+  "operations": [
+    {
+      "op": "add_field",
+      "table": "paywalls",
+      "field": "support_developer",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "op": "create_table",
+      "table": "developer_fees",
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "wallet_id",
+          "type": "string"
+        },
+        {
+          "name": "owed_msat",
+          "type": "integer"
+        },
+        {
+          "name": "paid_msat",
+          "type": "integer"
+        },
+        {
+          "name": "payouts",
+          "type": "integer"
+        },
+        {
+          "name": "last_payout_at",
+          "type": "datetime",
+          "nullable": true
+        },
+        {
+          "name": "last_error",
+          "type": "string"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime"
+        }
+      ]
+    }
+  ]
+}
