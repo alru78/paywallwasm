@@ -1,0 +1,17 @@
+{
+  "extensions": [
+    {
+      "id": "paywallwasm",
+      "repo": "https://github.com/alru78/paywallwasm",
+      "version": "0.1.0",
+      "archive": "https://github.com/alru78/paywallwasm/releases/download/v0.1.0/paywallwasm-v0.1.0.zip",
+      "hash": "3c7c730a34e72581dc7e6baa8bc974ef1a7e3a8cd879d99b84c6c60ee33cdc34",
+      "min_lnbits_version": "1.7.1",
+      "name": "Paywall",
+      "short_description": "Unlock a link after a Lightning payment.",
+      "details_link": "https://raw.githubusercontent.com/alru78/paywallwasm/v0.1.0/config.json",
+      "html_url": "https://github.com/alru78/paywallwasm/releases/tag/v0.1.0",
+      "extension_type": "wasm"
+    }
+  ]
+}
