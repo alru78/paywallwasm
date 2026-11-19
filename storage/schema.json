@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "tables": {
+    "paywalls": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "wallet_id",
+          "type": "string"
+        },
+        {
+          "name": "wallet_name",
+          "type": "string"
+        },
+        {
+          "name": "url",
+          "type": "string"
+        },
+        {
+          "name": "memo",
+          "type": "string"
+        },
+        {
+          "name": "description",
+          "type": "string"
+        },
+        {
+          "name": "amount",
+          "type": "number"
+        },
+        {
+          "name": "currency",
+          "type": "string"
+        },
+        {
+          "name": "remembers",
+          "type": "boolean"
+        },
+        {
+          "name": "created_at",
+          "type": "datetime"
+        },
+        {
+          "name": "updated_at",
+          "type": "datetime"
+        }
+      ]
+    },
+    "unlocks": {
+      "fields": [
+        {
+          "name": "id",
+          "type": "string"
+        },
+        {
+          "name": "paywall_id",
+          "type": "string"
+        },
+        {
+          "name": "payment_hash",
+          "type": "string"
+        },
+        {
+          "name": "amount_msat",
+          "type": "integer"
+        },
+        {
+          "name": "paid",
+          "type": "boolean"
+        },
+        {
+          "name": "paid_at",
+          "type": "datetime"
+        }
+      ]
+    }
+  },
+  "indexes": [
+    {
+      "table": "paywalls",
+      "name": "paywalls_by_created_at",
+      "field": "created_at"
+    },
+    {
+      "table": "unlocks",
+      "name": "unlocks_by_paywall",
+      "field": "paywall_id"
+    }
+  ]
+}

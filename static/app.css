@@ -1,0 +1,185 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+body {
+  background: var(--q-dark-page, #121212);
+  color: #fff;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.shell {
+  margin: 0 auto;
+  max-width: 960px;
+}
+
+.shell--narrow {
+  max-width: 520px;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+}
+
+.muted {
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+}
+
+label.checkbox {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.form input:not([type='checkbox']),
+.form select,
+.form textarea {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 4px;
+  color: #fff;
+  min-height: 40px;
+  outline: none;
+  padding: 8px 12px;
+  width: 100%;
+}
+
+.form input:focus,
+.form select:focus,
+.form textarea:focus {
+  border-color: var(--q-primary, #1976d2);
+}
+
+.form textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
+.form option {
+  background: #1e1e1e;
+}
+
+.amount-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 160px);
+}
+
+button.q-btn {
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  min-height: 40px;
+  padding: 8px 16px;
+}
+
+button.q-btn:not(.bg-primary) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+button.q-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.list {
+  display: grid;
+  gap: 12px;
+}
+
+.item {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+}
+
+.item-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.url {
+  overflow-wrap: anywhere;
+}
+
+.payments {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  padding-top: 8px;
+}
+
+.description {
+  white-space: pre-line;
+}
+
+.price {
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.invoice,
+.unlocked {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.qrcode {
+  background: #fff;
+  border-radius: 8px;
+  justify-self: center;
+  max-width: 100%;
+  padding: 8px;
+}
+
+.qrcode-svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}

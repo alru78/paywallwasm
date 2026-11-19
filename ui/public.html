@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Paywall</title>
+    <link rel="stylesheet" href="/ext-assets/paywallwasm/_lnbits/bundle.min.css" />
+    <link rel="stylesheet" href="/ext-assets/paywallwasm/_lnbits/material-icons.css" />
+    <link rel="stylesheet" href="/ext-assets/paywallwasm/app.css" />
+  </head>
+  <body class="body--dark">
+    <main class="shell shell--narrow q-pa-md">
+      <section class="panel q-pa-lg">
+        <p id="status" class="muted">Loading…</p>
+
+        <div id="paywall" hidden>
+          <h1 id="memo" class="text-h5 text-weight-bold q-mt-none q-mb-sm"></h1>
+          <p id="description" class="description"></p>
+          <p class="price">
+            <span id="price"></span>
+          </p>
+          <button id="pay-button" class="q-btn bg-primary text-white full-width" type="button">
+            Pay to unlock
+          </button>
+        </div>
+
+        <div id="invoice" class="invoice" hidden>
+          <div id="qrcode" class="qrcode"></div>
+          <p id="invoice-status" class="muted">Waiting for payment…</p>
+          <button id="copy-button" class="q-btn text-grey-2 full-width" type="button">
+            Copy invoice
+          </button>
+        </div>
+
+        <div id="unlocked" class="unlocked" hidden>
+          <p class="text-positive text-weight-bold">Payment received. Your link:</p>
+          <p id="unlocked-url" class="url"></p>
+          <button id="open-button" class="q-btn bg-primary text-white full-width" type="button">
+            Open link
+          </button>
+          <button id="copy-url-button" class="q-btn text-grey-2 full-width q-mt-sm" type="button">
+            Copy link
+          </button>
+        </div>
+      </section>
+    </main>
+    <script src="/ext-assets/paywallwasm/_lnbits/vue.global.prod.js"></script>
+    <script src="/ext-assets/paywallwasm/_lnbits/qrcode.vue.browser.js"></script>
+    <script src="/ext-assets/paywallwasm/lnbits-extension-sdk.js"></script>
+    <script src="/ext-assets/paywallwasm/public.js"></script>
+  </body>
+</html>
