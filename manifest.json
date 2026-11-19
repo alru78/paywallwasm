@@ -11,7 +11,8 @@
       "short_description": "Unlock a link after a Lightning payment.",
       "details_link": "https://raw.githubusercontent.com/alru78/paywallwasm/v0.1.0/config.json",
       "html_url": "https://github.com/alru78/paywallwasm/releases/tag/v0.1.0",
-      "extension_type": "wasm"
+      "extension_type": "wasm",
+      "icon": "https://raw.githubusercontent.com/alru78/paywallwasm/main/static/assets/icon.png"
     }
   ]
 }

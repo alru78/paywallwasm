@@ -84,3 +84,7 @@ Requires LNbits 1.7.1 or newer.
 ## License
 
 MIT, like the original Paywall extension.
+
+The icon (`static/assets/icon.png`, source `assets/icon.svg`) uses lettering
+converted from the Rubik Wet Paint font, licensed under the SIL Open Font
+License 1.1 (`assets/OFL-RubikWetPaint.txt`).
