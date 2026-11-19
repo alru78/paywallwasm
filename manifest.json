@@ -27,6 +27,20 @@
       "html_url": "https://github.com/alru78/paywallwasm/releases/tag/v0.1.1",
       "extension_type": "wasm",
       "icon": "https://raw.githubusercontent.com/alru78/paywallwasm/main/static/assets/icon.png"
+    },
+    {
+      "id": "paywallwasm",
+      "repo": "https://github.com/alru78/paywallwasm",
+      "version": "0.1.2",
+      "archive": "https://github.com/alru78/paywallwasm/releases/download/v0.1.2/paywallwasm-v0.1.2.zip",
+      "hash": "48fecd918fc0e54f516f7427fe39ccfd954edad95f8fca3969aa06eaaaa8374e",
+      "min_lnbits_version": "1.7.1",
+      "name": "Paywall",
+      "short_description": "Unlock a link after a Lightning payment.",
+      "details_link": "https://raw.githubusercontent.com/alru78/paywallwasm/v0.1.2/config.json",
+      "html_url": "https://github.com/alru78/paywallwasm/releases/tag/v0.1.2",
+      "extension_type": "wasm",
+      "icon": "https://raw.githubusercontent.com/alru78/paywallwasm/main/static/assets/icon.png"
     }
   ]
 }

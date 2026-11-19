@@ -5,6 +5,20 @@
   "version": "0.2.0",
   "min_lnbits_version": "1.7.1",
   "extension_type": "wasm",
+  "contributors": [
+    {
+      "name": "alru78",
+      "uri": "https://github.com/alru78",
+      "role": "Developer"
+    },
+    {
+      "name": "eillarra",
+      "uri": "https://github.com/eillarra",
+      "role": "Original Paywall extension"
+    }
+  ],
+  "license": "MIT",
+  "description_md": "https://raw.githubusercontent.com/alru78/paywallwasm/main/description.md",
   "wasm": {
     "module": "wasm/module.wasm",
     "exports": [
