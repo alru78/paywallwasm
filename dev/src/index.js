@@ -173,7 +173,9 @@ export function createPaywallInvoice(requestJson) {
       amount,
       currency: paywall.currency,
       memo: paywall.memo,
-      extra: {paywallId: paywall.id}
+      // The issued price travels with the invoice, so recordPayment can check
+      // it without depending on the current price.
+      extra: {paywallId: paywall.id, amount, currency: paywall.currency}
     })
     return {
       paymentHash: invoice.paymentHash,
@@ -224,6 +226,19 @@ export function recordPayment(eventJson) {
       return {recorded: false, reason: 'paywall not found'}
     }
 
+    // Defence in depth: core already binds the event to this paywall's owner
+    // context, but a host regression should not unlock on the wrong wallet or
+    // on less than the invoiced price.
+    if (event.walletId && event.walletId !== paywall.wallet_id) {
+      return {recorded: false, reason: 'wallet mismatch'}
+    }
+    const amountMsat = Math.abs(Math.trunc(Number(event.amount || 0)))
+    const shortfall = issuedAmountShortfall(invoiceExtra, extra, amountMsat)
+    if (shortfall) {
+      system.log(`${EXTENSION_ID}: payment for ${paywall.id} rejected: ${shortfall}`, 'warning')
+      return {recorded: false, reason: shortfall}
+    }
+
     const id = unlockId(paymentHash)
     const existing = storage.get(UNLOCKS_TABLE, id)
     if (existing && existing.paid === true) {
@@ -232,7 +247,6 @@ export function recordPayment(eventJson) {
 
     // The id is derived from the payment hash, so duplicate events overwrite
     // the same row instead of creating a second unlock.
-    const amountMsat = Math.abs(Math.trunc(Number(event.amount || 0)))
     storage.set(UNLOCKS_TABLE, {
       id,
       paywall_id: paywall.id,
@@ -249,6 +263,37 @@ export function recordPayment(eventJson) {
         : null
     return {recorded: true, developerSupport}
   })
+}
+
+// Compares the payment with the price stored on the invoice at issue time.
+// Invoices issued by v0.1.x carry no price and are accepted as before.
+function issuedAmountShortfall(invoiceExtra, paymentExtra, amountMsat) {
+  const issued = Number(invoiceExtra.amount)
+  if (invoiceExtra.amount === undefined || !Number.isFinite(issued)) return ''
+  if (issued <= 0) return 'invoice amount is zero'
+  const currency = cleanText(invoiceExtra.currency, 8) || 'sat'
+  if (currency === 'sat') {
+    return amountMsat >= Math.round(issued * 1000) ? '' : 'amount below invoice'
+  }
+  // Core (calculate_fiat_amounts) records fiat_currency/fiat_amount when the
+  // invoice currency differs from the wallet's, otherwise only
+  // wallet_fiat_currency/wallet_fiat_amount, both rounded to 3 decimals.
+  let recordedCurrency = paymentExtra.fiat_currency
+  let recordedAmount = paymentExtra.fiat_amount
+  if (recordedCurrency === undefined) {
+    if (sameCurrency(paymentExtra.wallet_fiat_currency, currency)) {
+      recordedCurrency = paymentExtra.wallet_fiat_currency
+      recordedAmount = paymentExtra.wallet_fiat_amount
+    } else {
+      return ''
+    }
+  }
+  if (!sameCurrency(recordedCurrency, currency)) return 'currency mismatch'
+  return Number(recordedAmount) >= issued - 0.0005 ? '' : 'amount below invoice'
+}
+
+function sameCurrency(a, b) {
+  return typeof a === 'string' && a.toUpperCase() === String(b).toUpperCase()
 }
 
 // record-payment is a "sync" export, so fee updates for one owner never race.
@@ -279,6 +324,7 @@ function collectDeveloperFee(walletId, amountMsat) {
   storage.set(FEES_TABLE, row)
 
   let error = ''
+  let outcomeUnknown = false
   try {
     const payment = wallet.payLnurl({
       walletId,
@@ -295,10 +341,14 @@ function collectDeveloperFee(walletId, amountMsat) {
     }
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught)
+    outcomeUnknown = true
   }
 
   if (error) {
-    row.owed_msat += payoutSat * 1000
+    // Only an explicit ok:false means no payment left the wallet. After a
+    // throw the outcome is unknown, so the batch stays deducted: the developer
+    // may lose it, but the owner never pays it twice.
+    if (!outcomeUnknown) row.owed_msat += payoutSat * 1000
     row.last_error = cleanText(error, 300)
     storage.set(FEES_TABLE, row)
     system.log(`${EXTENSION_ID}: developer payout failed: ${row.last_error}`, 'warning')
@@ -391,7 +441,9 @@ function normalizeAmount(value, currency) {
     if (!Number.isInteger(amount)) throw new Error('sat amounts must be whole numbers.')
     return amount
   }
-  return Math.round(amount * 100) / 100
+  const rounded = Math.round(amount * 100) / 100
+  if (rounded <= 0) throw new Error('amount must be at least 0.01.')
+  return rounded
 }
 
 function normalizeCurrency(value) {

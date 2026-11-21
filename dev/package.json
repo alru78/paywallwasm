@@ -2,10 +2,15 @@
   "name": "lnbits-paywall-wasm",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=20"},
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "build:wasm": "node scripts/bundle.mjs && npx --yes @bytecodealliance/jco@1.42.0 componentize dist/index.bundle.js --disable all --enable clocks --enable random --enable stdio --wit ../wasm/lnbits-extension.wit --world-name paywallwasm -o ../wasm/module.wasm",
+    "build:wasm": "node scripts/bundle.mjs && jco componentize dist/index.bundle.js --disable all --enable clocks --enable random --enable stdio --wit ../wasm/lnbits-extension.wit --world-name paywallwasm -o ../wasm/module.wasm",
     "check": "node --check src/index.js",
     "test": "node scripts/bundle.mjs && node --test test/"
+  },
+  "devDependencies": {
+    "@bytecodealliance/jco": "1.42.0"
   }
 }
