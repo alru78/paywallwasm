@@ -2,7 +2,7 @@
   "id": "paywallwasm",
   "name": "Paywall",
   "short_description": "Unlock a link after a Lightning payment.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "min_lnbits_version": "1.7.1",
   "extension_type": "wasm",
   "contributors": [

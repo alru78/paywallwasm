@@ -46,7 +46,9 @@ globalThis.__paywallHost = {
     },
     set(table, data) {
       const existing = rows.get(key(table, data.id))
-      if (existing && existing.owner !== owner) throw new Error('id taken')
+      // Like crud.py's ON CONFLICT ... WHERE owner_id: a foreign row is
+      // silently left alone, not an error.
+      if (existing && existing.owner !== owner) return
       rows.set(key(table, data.id), {owner, data: structuredClone(data)})
       return data
     },
@@ -186,7 +188,7 @@ test('invoices use the stored price and reject underpayment', () => {
     amount: 21,
     currency: 'sat',
     memo: 'Secret article',
-    extra: {paywallId: paywall.id}
+    extra: {paywallId: paywall.id, amount: 21, currency: 'sat'}
   })
   assert.match(callError(ext.createPaywallInvoice, {paywallId: paywall.id, amount: 5}), /Minimum amount/)
   assert.equal(call(ext.createPaywallInvoice, {paywallId: paywall.id, amount: 50}).amount, 50)
@@ -266,4 +268,65 @@ test('deleting a paywall removes its unlocks', () => {
   call(ext.recordPayment, paidEvent(paywall.id))
   call(ext.deletePaywall, {paywallId: paywall.id})
   assert.equal(rows.size, 0)
+})
+
+test('fiat prices that round to zero are rejected', () => {
+  owner = 'alice'
+  const base = {walletId: 'w_alice', url: 'https://example.com/secret', memo: 'm', currency: 'EUR'}
+  assert.match(callError(ext.createPaywall, {...base, amount: 0.004}), /at least 0.01/)
+  assert.equal(call(ext.createPaywall, {...base, amount: 0.005}).paywall.amount, 0.01)
+})
+
+test('events for another wallet do not unlock', () => {
+  const paywall = createAlicePaywall()
+  const result = call(ext.recordPayment, paidEvent(paywall.id, HASH_A, {walletId: 'w_bob'}))
+  assert.deepEqual(result, {recorded: false, reason: 'wallet mismatch'})
+  assert.deepEqual(call(ext.checkPaywallPayment, {paywallId: paywall.id, paymentHash: HASH_A}), {paid: false})
+})
+
+function issuedEvent(paywallId, issued, overrides = {}, paymentExtra = {}) {
+  return paidEvent(paywallId, HASH_A, {
+    // The host stores invoice extra values as strings, like LNbits does.
+    extra: {
+      source_id: paywallId,
+      extra_paywallwasm: {paywallId, ...Object.fromEntries(Object.entries(issued).map(([k, v]) => [k, String(v)]))},
+      ...paymentExtra
+    },
+    ...overrides
+  })
+}
+
+test('sat payments below the issued price do not unlock', () => {
+  const paywall = createAlicePaywall()
+  const short = issuedEvent(paywall.id, {amount: 50, currency: 'sat'}, {amount: 21_000})
+  assert.equal(call(ext.recordPayment, short).reason, 'amount below invoice')
+  const exact = issuedEvent(paywall.id, {amount: 50, currency: 'sat'}, {amount: 50_000})
+  assert.equal(call(ext.recordPayment, exact).recorded, true)
+})
+
+test('a price raise does not break invoices issued at the old price', () => {
+  const paywall = createAlicePaywall()
+  call(ext.updatePaywall, {...paywall, paywallId: paywall.id, walletId: 'w_alice', amount: 100})
+  const old = issuedEvent(paywall.id, {amount: 21, currency: 'sat'}, {amount: 21_000})
+  assert.equal(call(ext.recordPayment, old).recorded, true)
+})
+
+test('fiat payments are checked against the recorded fiat amount', () => {
+  const paywall = createAlicePaywall({amount: 2.5, currency: 'EUR'})
+  const issued = {amount: 2.5, currency: 'EUR'}
+  const wrongCurrency = issuedEvent(paywall.id, issued, {}, {fiat_currency: 'USD', fiat_amount: 2.5})
+  assert.equal(call(ext.recordPayment, wrongCurrency).reason, 'currency mismatch')
+  const short = issuedEvent(paywall.id, issued, {}, {fiat_currency: 'EUR', fiat_amount: 1})
+  assert.equal(call(ext.recordPayment, short).reason, 'amount below invoice')
+  const ok = issuedEvent(paywall.id, issued, {}, {fiat_currency: 'EUR', fiat_amount: 2.5})
+  assert.equal(call(ext.recordPayment, ok).recorded, true)
+})
+
+test('fiat in the wallet currency is checked via wallet_fiat_amount', () => {
+  const paywall = createAlicePaywall({amount: 2.5, currency: 'EUR'})
+  const issued = {amount: 2.5, currency: 'EUR'}
+  const short = issuedEvent(paywall.id, issued, {}, {wallet_fiat_currency: 'EUR', wallet_fiat_amount: 1})
+  assert.equal(call(ext.recordPayment, short).reason, 'amount below invoice')
+  const ok = issuedEvent(paywall.id, issued, {}, {wallet_fiat_currency: 'EUR', wallet_fiat_amount: 2.5})
+  assert.equal(call(ext.recordPayment, ok).recorded, true)
 })

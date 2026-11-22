@@ -145,7 +145,9 @@ export function createPaywallInvoice(requestJson) {
       amount,
       currency: paywall.currency,
       memo: paywall.memo,
-      extra: {paywallId: paywall.id}
+      // The issued price travels with the invoice, so recordPayment can check
+      // it without depending on the current price.
+      extra: {paywallId: paywall.id, amount, currency: paywall.currency}
     })
     return {
       paymentHash: invoice.paymentHash,
@@ -196,6 +198,19 @@ export function recordPayment(eventJson) {
       return {recorded: false, reason: 'paywall not found'}
     }
 
+    // Defence in depth: core already binds the event to this paywall's owner
+    // context, but a host regression should not unlock on the wrong wallet or
+    // on less than the invoiced price.
+    if (event.walletId && event.walletId !== paywall.wallet_id) {
+      return {recorded: false, reason: 'wallet mismatch'}
+    }
+    const amountMsat = Math.abs(Math.trunc(Number(event.amount || 0)))
+    const shortfall = issuedAmountShortfall(invoiceExtra, extra, amountMsat)
+    if (shortfall) {
+      system.log(`${EXTENSION_ID}: payment for ${paywall.id} rejected: ${shortfall}`, 'warning')
+      return {recorded: false, reason: shortfall}
+    }
+
     const id = unlockId(paymentHash)
     const existing = storage.get(UNLOCKS_TABLE, id)
     if (existing && existing.paid === true) {
@@ -208,13 +223,44 @@ export function recordPayment(eventJson) {
       id,
       paywall_id: paywall.id,
       payment_hash: paymentHash,
-      amount_msat: Math.abs(Math.trunc(Number(event.amount || 0))),
+      amount_msat: amountMsat,
       paid: true,
       paid_at: system.now()
     })
     system.log(`${EXTENSION_ID}: unlocked paywall ${paywall.id}`)
     return {recorded: true}
   })
+}
+
+// Compares the payment with the price stored on the invoice at issue time.
+// Invoices issued by v0.1.x carry no price and are accepted as before.
+function issuedAmountShortfall(invoiceExtra, paymentExtra, amountMsat) {
+  const issued = Number(invoiceExtra.amount)
+  if (invoiceExtra.amount === undefined || !Number.isFinite(issued)) return ''
+  if (issued <= 0) return 'invoice amount is zero'
+  const currency = cleanText(invoiceExtra.currency, 8) || 'sat'
+  if (currency === 'sat') {
+    return amountMsat >= Math.round(issued * 1000) ? '' : 'amount below invoice'
+  }
+  // Core (calculate_fiat_amounts) records fiat_currency/fiat_amount when the
+  // invoice currency differs from the wallet's, otherwise only
+  // wallet_fiat_currency/wallet_fiat_amount, both rounded to 3 decimals.
+  let recordedCurrency = paymentExtra.fiat_currency
+  let recordedAmount = paymentExtra.fiat_amount
+  if (recordedCurrency === undefined) {
+    if (sameCurrency(paymentExtra.wallet_fiat_currency, currency)) {
+      recordedCurrency = paymentExtra.wallet_fiat_currency
+      recordedAmount = paymentExtra.wallet_fiat_amount
+    } else {
+      return ''
+    }
+  }
+  if (!sameCurrency(recordedCurrency, currency)) return 'currency mismatch'
+  return Number(recordedAmount) >= issued - 0.0005 ? '' : 'amount below invoice'
+}
+
+function sameCurrency(a, b) {
+  return typeof a === 'string' && a.toUpperCase() === String(b).toUpperCase()
 }
 
 function paywallFields(request) {
@@ -292,7 +338,9 @@ function normalizeAmount(value, currency) {
     if (!Number.isInteger(amount)) throw new Error('sat amounts must be whole numbers.')
     return amount
   }
-  return Math.round(amount * 100) / 100
+  const rounded = Math.round(amount * 100) / 100
+  if (rounded <= 0) throw new Error('amount must be at least 0.01.')
+  return rounded
 }
 
 function normalizeCurrency(value) {
